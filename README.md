@@ -2,4 +2,4 @@
 
 Uploading of two files:
 * first file is the R markdown file (PMLtraining.Rmd)
-* second file is the HTML website that can be easily viewed by clicking [here](www.rgeenowak.github.io/PMLtraining.html)
+* second file is the HTML website that can be easily viewed by clicking [here](https://rgeenowak.github.io/index)
