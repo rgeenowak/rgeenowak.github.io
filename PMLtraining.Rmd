@@ -1,0 +1,115 @@
+---
+title: 'Practical Machine Learning: Prediction Assignment'
+output: html_document
+date: Apr 8, 2020
+---
+
+## Background
+
+Goal of this project is to develop a prediction model for dumbbell movements
+of 6 participants who lifted dumbbells correctly and incorrectly in 
+5 different ways. More information is available on the [Weight Lifting Exercise Dataset](http://groupware.les.inf.puc-rio.br/har)
+
+## Data
+
+1. [Training Data](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+2. [Testing Data](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+
+## Analyses
+Use dumbbell movement data to classify the movements into 5 cateories: Class A is the correct movement; Class B is throwing elbows to front; Class C is lifting dumbbells only halfway; Class D is lowering dumbbells halfway; and Class E is throwing hips to the front. Ultimately the final algorithm will be used to classify movement of 20 observations in the testing data.
+
+```{r data, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Review data and clean in prep for Cross Validation 
+```{r cross validation, results="hide"}
+
+library(caret); library(ggplot2)
+set.seed(4889)
+pmltrain = read.csv("pml-training.csv", na.string=c("NA", "#DIV/0!", ""))
+pmltest = read.csv("pml-testing.csv", na.string=c("NA", "#DIV/0!", ""))
+str(pmltrain); str(pmltest)
+ #looks like a lot of missing; 13737 observations 160 variables; 20 observations 160 variables
+table(pmltrain$classe)
+
+##clean to have most complete data; ie no missing
+misstrain <- sapply(pmltrain, function(x){any(is.na(x))})
+pmltrain <- pmltrain[,!misstrain]
+names(pmltrain)
+
+misstest <- sapply(pmltest, function(x){any(is.na(x))})
+pmltest <- pmltest[, !misstest]
+names(pmltest)
+```
+
+## create cross validation subsets (train and test datasets)
+```{r}
+inTrain <- createDataPartition(y=pmltrain$classe, p=0.7, list=FALSE)
+train = pmltrain[inTrain,]
+test <- pmltrain[-inTrain,]
+
+```
+The training set has 13737 observations with 60 variables
+The test set has 5885 observations with 60 variables
+
+## see if any variables have no variability
+```{r near zero}
+nsv <-nearZeroVar(train, saveMetrics = TRUE)
+nsv
+```
+only new_window had no variability
+
+## Build Machine Learning Algorithm with decision tree model; test accuracy of model
+```{r decision tree}
+library(caret)
+library(rattle)
+mod_rpart <- train(classe ~., method="rpart", data=train[,c(8:60)])
+fancyRpartPlot(mod_rpart$finalModel)
+
+mod_rpart <- predict(mod_rpart, test[,c(8:60)])
+confusionMatrix(test$classe, mod_rpart)$overall[1]
+```
+Prediction Accuracy was 48.9%; try random forest algorithm
+
+## Build Machine learning algorithm with random forest model; test accuracy of model
+```{r random forest}
+mod_rf <- train(classe ~., method="rf", data=train[,c(8:60)])
+pred_rf <-predict(mod_rf, test[,c(8:60)])
+confusionMatrix(test$classe, pred_rf)$overall[1]
+```
+Prediction Accuracy with random forest is 99.6%
+
+## Build Machine learning algorithm with boosting model; test accuracy of model
+```{r boosting, results= 'hide'}
+mod_gbm <- train(classe ~., method= "gbm", data=train[,c(8:60)])
+pred_gbm <-predict(mod_gbm, test[,c(8:60)])
+confusionMatrix(test$classe, pred_gbm)$overall[1]
+```
+Accuracy is 96.3%
+
+## Build machine learning algorithm with LDA; test accuracy of model
+```{r LDA}
+mod_lda <- train(classe ~., method="lda", data=train[,c(8:60)])
+pred_lda <- predict(mod_lda, test[,c(8:60)])
+confusionMatrix(test$classe, pred_lda)$overall[1]
+```
+Accuracy is 70.1%
+
+Out of all the models the RF model has the highest prediction accuracy (99%). Next best model is the boosting model (96%), LDA (70%) and then decision tree model (49%).Therefore, choose Random forest model for prediction.
+
+```{r}
+error <- 1- as.numeric(confusionMatrix(test$classe, pred_rf)$overall[1])
+error
+```
+
+out of sample error is 0.4%
+
+
+## Use RF model to predict 20 test cases
+```{r prediction}
+predtest <- predict(mod_rf, pmltest[,c(8:60)] )
+predtest
+```
+
